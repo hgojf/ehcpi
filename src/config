@@ -1,0 +1,20 @@
+event=button/lid LID close
+action=doas /usr/local/bin/zzz
+
+event=button/power
+action=doas /sbin/poweroff
+
+event=button/volumedown
+action=doas /usr/bin/amixer set Master 1-
+
+event=button/mute
+action=doas /usr/bin/amixer set Master toggle
+
+event=button/volumeup
+action=doas /usr/bin/amixer set Master 1+
+
+event=button/brightnessdown
+action=doas /usr/local/bin/brightness -50
+
+event=button/brightnessup
+action=doas /usr/local/bin/brightness 50
