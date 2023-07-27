@@ -26,6 +26,8 @@ static struct evtab_entry evtab[] = {
 
 	 { EV_SW,  SW_LID,  0, "lid-open", NULL },
 	 { EV_SW,  SW_LID,  1, "button/lid LID close", NULL },
+
+	 { EV_KEY, KEY_CONFIG, 1, "button/config", NULL },
 };
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))

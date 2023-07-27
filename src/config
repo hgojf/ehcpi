@@ -18,3 +18,6 @@ action=doas /usr/local/bin/brightness -50
 
 event=button/brightnessup
 action=doas /usr/local/bin/brightness 50
+
+event=button/config
+action=doas /usr/bin/pkill dwl

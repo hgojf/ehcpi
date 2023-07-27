@@ -9,3 +9,4 @@ ehcpi: ${SRC}
 install:
 	install -d ${DESTDIR}${PREFIX}/bin
 	install -m 755 ehcpi ${DESTDIR}${PREFIX}/bin
+	install -m 755 init/openrc/ehcpi /etc/init.d/ehcpi
