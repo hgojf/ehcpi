@@ -11,9 +11,9 @@
 
 #include "input.h"
 
-static void setup_signals(void);
-static void populate_poll(int efd, int fds[32], int argc, char **argv);
-static void epoll_loop(int efd, int debug_mode);
+static void populate_poll(int, int [32], int , char **);
+static void epoll_loop(int, int);
+void sigint_handler(int);
 
 int main(int argc, char **argv)
 {
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 
 	populate_poll(efd, fds, argc, argv);
 
-	setup_signals();
+	(void) signal(SIGINT, sigint_handler);
 	epoll_loop(efd, debug_mode);
 
 	free_rules();
@@ -92,12 +92,6 @@ void sigint_handler(int signum)
 	assert (signum == SIGINT);
 }
 
-static void setup_signals(void)
-{
-	if (signal(SIGINT, sigint_handler) == SIG_ERR)
-		err(1, "signal");
-}
-
 static void epoll_loop(int efd, int debug_mode)
 {
 	//too small? too big?
@@ -132,5 +126,4 @@ static void epoll_loop(int efd, int debug_mode)
 			}
 		}
 	}
-
 }
