@@ -1,0 +1,2 @@
+button=lid-open
+action=echo i
