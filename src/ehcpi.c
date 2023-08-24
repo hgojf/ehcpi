@@ -8,26 +8,29 @@
 #include <signal.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "input.h"
 
-static void populate_poll(int, int [32], int , char **);
+static void populate_poll(int, int [32]);
 static void epoll_loop(int, int);
 void sigint_handler(int);
 
 int main(int argc, char **argv)
 {
+	if (daemon(0, 0) == -1)
+		err(1, "daemon");
 	int debug_mode = 0;
 	char *cfg = "/etc/ehcpi";
 	{
 	int ch;
-	while ( (ch = getopt(argc, argv, "dC:")) != EOF)
+	while ( (ch = getopt(argc, argv, "")) != EOF)
 	{
 		switch (ch)
 		{
-			case 'd':
-				debug_mode = 1;
-				break;
 			default:
 				break;
 		}
@@ -49,9 +52,10 @@ int main(int argc, char **argv)
 	//im not sure about the limits imposed on epoll (number of fds, etc)
 	int fds[32];
 
-	populate_poll(efd, fds, argc, argv);
+	populate_poll(efd, fds);
 
 	(void) signal(SIGINT, sigint_handler);
+	(void) signal(SIGTERM, sigint_handler);
 	epoll_loop(efd, debug_mode);
 
 	free_rules();
@@ -66,16 +70,29 @@ int main(int argc, char **argv)
 		err(1, "close");
 }
 
-static void populate_poll(int efd, int fds[32], int argc, char **argv)
+static void populate_poll(int efd, int fds[32])
 {
 	//maybe implement something like in acpid where you just check every input device
-	//and if they have an event you need add them
+       //and if they have an event you need add them
 	int fdi = 0;
-	for (int i = optind; i < argc && i < 32; i++, fdi++)
+	DIR *dir;
+	struct dirent *dp;
+	int dfd;
+	if ((dir = opendir("/dev/input")) == NULL)
+		err(1, "opendir");
+	dfd = dirfd(dir);
+	for (int i = 0; (dp = readdir(dir)) != NULL && i < 32; )
 	{
-		int fd = open(argv[i], O_RDONLY | O_NONBLOCK);
+		struct stat sb;
+		if (fstatat(dfd, dp->d_name, &sb, 0) == -1)
+			err(1, "stat %s", dp->d_name);
+		if (S_ISDIR(sb.st_mode))
+			continue;
+		if (strncmp(dp->d_name, "event", strlen("event")) != 0)
+			continue;
+		int fd = openat(dfd, dp->d_name, O_RDONLY | O_NONBLOCK);
 		if (fd == -1)
-			err(1, "open %s", argv[i]);
+			err(1, "open %s", dp->d_name);
 		fds[fdi] = fd;
 		struct epoll_event event_hints = {
 			.events = EPOLLIN,
@@ -83,7 +100,10 @@ static void populate_poll(int efd, int fds[32], int argc, char **argv)
 		};
 		if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event_hints) == -1)
 			err(1, "epollctl");
+		++i;
+		++fdi;
 	}
+	closedir(dir);
 	fds[fdi] = -1;
 }
 
@@ -108,11 +128,6 @@ static void epoll_loop(int efd, int debug_mode)
 		{
 			if (read(events[i].data.fd, &ev, sizeof(ev)) != sizeof(ev))
 				err(1, "read");
-			if (debug_mode)
-			{
-				if (fprintf(stderr, "%u %u %u\n", ev.type, ev.code, ev.value) == -1)
-					err(1, "printf");
-			}
 			else
 			{
 				const char *name = input_string(ev);
