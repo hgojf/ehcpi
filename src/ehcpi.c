@@ -2,6 +2,7 @@
 #include <linux/input-event-codes.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
+#include <sys/queue.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,7 +17,15 @@
 
 #include "input.h"
 
-static void populate_poll(int, int [32]);
+struct entry
+{
+	int fd;
+	LIST_ENTRY(entry) entries;
+};
+
+LIST_HEAD(listhead, entry);
+
+static void populate_poll(int, struct listhead *);
 static void epoll_loop(int, int);
 void sigint_handler(int);
 
@@ -48,13 +57,10 @@ int main(int argc, char **argv)
 	if ((efd = epoll_create(32)) == -1)
 		err(1, "epoll_create");
 
-	int fds[32]; 
-	/*
-	 * This is an arbitrary limit, we could lift this limit through the use of 
-	 * a linked list (look at where this is used, performance is not a must)
-	 */
+	struct listhead head;
+	LIST_INIT(&head);
 
-	populate_poll(efd, fds);
+	populate_poll(efd, &head);
 
 	(void) signal(SIGINT, sigint_handler);
 	(void) signal(SIGTERM, sigint_handler);
@@ -62,19 +68,23 @@ int main(int argc, char **argv)
 
 	free_rules();
 
-	for (int i = 0; i < 32 && fds[i] != -1; i++)
+	struct entry *i, *i2;
+	i = LIST_FIRST(&head);
+	while (i != NULL)
 	{
-		if (close(fds[i]) == -1)
+		i2 = LIST_NEXT(i, entries);
+		if (close(i->fd) == -1)
 			err(1, "close");
+		free(i);
+		i = i2;
 	}
 
 	if (close(efd) == -1)
 		err(1, "close");
 }
 
-static void populate_poll(int efd, int fds[32])
+static void populate_poll(int efd, struct listhead *head)
 {
-	size_t fdi = 0;
 	DIR *dir;
 	struct dirent *dp;
 	int dfd;
@@ -96,7 +106,13 @@ static void populate_poll(int efd, int fds[32])
 		if ((fd = openat(dfd, dp->d_name, O_RDONLY | O_NONBLOCK)) == -1)
 			err(1, "open %s", dp->d_name);
 		if (key_valid(fd))
-			fds[fdi] = fd;
+		{
+			struct entry *e;
+			if ((e = malloc(sizeof(struct entry))) == NULL)
+				err(1, "malloc");
+			e->fd = fd;
+			LIST_INSERT_HEAD(head, e, entries);
+		}
 		else
 		{
 			if (close(fd) == -1)
@@ -112,11 +128,9 @@ static void populate_poll(int efd, int fds[32])
 		if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event_hints) == -1)
 			err(1, "epollctl");
 		++i;
-		++fdi;
 	}
 	if (closedir(dir) == -1)
 		err(1, "closedir");
-	fds[fdi] = -1;
 }
 
 void sigint_handler(int signum)
