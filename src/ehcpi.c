@@ -93,7 +93,7 @@ static void populate_poll(int efd, struct listhead *head)
 	/* EINVAL will never happen, but ENOTSUP might (on some libc?) */
 	if ((dfd = dirfd(dir)) == -1)
 		err(1, "dirfd");
-	for (int i = 0; (dp = readdir(dir)) != NULL && i < 32; )
+	while ((dp = readdir(dir)) != NULL)
 	{
 		struct stat sb;
 		if (fstatat(dfd, dp->d_name, &sb, 0) == -1)
@@ -127,7 +127,6 @@ static void populate_poll(int efd, struct listhead *head)
 
 		if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event_hints) == -1)
 			err(1, "epollctl");
-		++i;
 	}
 	if (closedir(dir) == -1)
 		err(1, "closedir");
