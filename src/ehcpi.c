@@ -59,7 +59,6 @@ int main(int argc, char **argv)
 	if ((efd = epoll_create(32)) == -1)
 		err(1, "epoll_create");
 
-	struct listhead head;
 	SLIST_INIT(&head);
 
 	populate_poll(efd, &head);
