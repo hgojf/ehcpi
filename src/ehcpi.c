@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <assert.h>
 
 #include "input.h"
@@ -20,26 +21,27 @@
 struct entry
 {
 	int fd;
-	LIST_ENTRY(entry) entries;
+	SLIST_ENTRY(entry) entries;
 };
 
-LIST_HEAD(listhead, entry);
+SLIST_HEAD(listhead, entry) head;
 
 static void populate_poll(int, struct listhead *);
-static void epoll_loop(int, int);
+static void epoll_loop(int);
 void sigint_handler(int);
 
 int main(int argc, char **argv)
 {
-	if (daemon(0, 0) == -1)
-		err(1, "daemon");
-	int debug_mode = 0;
+	bool daemonize = false;
 	char *cfg = "/etc/ehcpi";
 	int ch;
-	while ((ch = getopt(argc, argv, "")) != EOF)
+	while ((ch = getopt(argc, argv, "d")) != EOF)
 	{
 		switch (ch)
 		{
+			case 'd':
+				daemonize = true;
+				break;
 			default:
 				break;
 		}
@@ -58,23 +60,28 @@ int main(int argc, char **argv)
 		err(1, "epoll_create");
 
 	struct listhead head;
-	LIST_INIT(&head);
+	SLIST_INIT(&head);
 
 	populate_poll(efd, &head);
 
 	(void) signal(SIGINT, sigint_handler);
 	(void) signal(SIGTERM, sigint_handler);
-	epoll_loop(efd, debug_mode);
+	if (daemonize)
+	{
+		if (daemon(0, 0) == -1)
+			err(1, "daemon");
+	}
+	epoll_loop(efd);
 
 	free_rules();
 
 	struct entry *i, *i2;
-	i = LIST_FIRST(&head);
+	i = SLIST_FIRST(&head);
 	while (i != NULL)
 	{
-		i2 = LIST_NEXT(i, entries);
 		if (close(i->fd) == -1)
 			err(1, "close");
+		i2 = SLIST_NEXT(i, entries);
 		free(i);
 		i = i2;
 	}
@@ -111,7 +118,7 @@ static void populate_poll(int efd, struct listhead *head)
 			if ((e = malloc(sizeof(struct entry))) == NULL)
 				err(1, "malloc");
 			e->fd = fd;
-			LIST_INSERT_HEAD(head, e, entries);
+			SLIST_INSERT_HEAD(head, e, entries);
 		}
 		else
 		{
@@ -136,7 +143,7 @@ void sigint_handler(int signum)
 {
 }
 
-static void epoll_loop(int efd, int debug_mode)
+static void epoll_loop(int efd)
 {
 	struct epoll_event events[12];
 
