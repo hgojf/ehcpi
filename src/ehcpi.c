@@ -14,8 +14,6 @@
 #include <signal.h>
 #include <assert.h>
 
-#include <libevdev/libevdev.h>
-
 #include "input.h"
 
 static void populate_poll(int, int [32]);
@@ -50,7 +48,11 @@ int main(int argc, char **argv)
 	if ((efd = epoll_create(32)) == -1)
 		err(1, "epoll_create");
 
-	int fds[32];
+	int fds[32]; 
+	/*
+	 * This is an arbitrary limit, we could lift this limit through the use of 
+	 * a linked list (look at where this is used, performance is not a must)
+	 */
 
 	populate_poll(efd, fds);
 
@@ -112,7 +114,8 @@ static void populate_poll(int efd, int fds[32])
 		++i;
 		++fdi;
 	}
-	closedir(dir);
+	if (closedir(dir) == -1)
+		err(1, "closedir");
 	fds[fdi] = -1;
 }
 
@@ -134,8 +137,8 @@ static void epoll_loop(int efd, int debug_mode)
 				err(1, "read");
 			else
 			{
-				const char *name = input_string(ev);
-				if (!name)
+				const char *name;
+				if ((name = input_string(ev)) == NULL)
 					continue;
 				if (system(name) == -1)
 					err(1, "system(%s) failed", name);
