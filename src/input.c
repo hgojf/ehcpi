@@ -1,10 +1,13 @@
 #include <linux/input-event-codes.h>
 #include <linux/input.h>
+
+#include <err.h>
+
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <err.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 struct evtab_entry {
 	unsigned type;
@@ -30,7 +33,31 @@ static struct evtab_entry evtab[] = {
 	 { EV_KEY, KEY_CONFIG, 1, "button/config", NULL },
 };
 
+#define EV_VREP 2
+
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
+
+bool key_valid(int fd)
+{
+	unsigned long evbit = 0;
+	if (ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), &evbit) == -1)
+		err(1, "ioctl EVIOCGBIT");
+	for (size_t i = 0; i < EVTAB_LEN; i++)
+	{
+		int value = evtab[i].value;
+		if (evtab[i].cmd == NULL)
+			continue;
+		if (!(evbit & (1 << evtab[i].type)))
+			continue;
+		size_t nchar = KEY_MAX;
+		unsigned char bits[nchar];
+		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), &bits) == -1)
+			err(1, "ioctl");
+		if (bits[value/8] & (1 << (value % 8)))
+			return true;
+	}
+	return false;
+}
 
 const char *input_string(const struct input_event ev)
 {
@@ -40,8 +67,7 @@ const char *input_string(const struct input_event ev)
 			continue;
 		if (ev.type == EV_KEY)
 		{
-			//if its 2, it is a repeat
-			if (ev.value != 2 && evtab[i].value != ev.value)
+			if (ev.value != EV_VREP && evtab[i].value != ev.value)
 				continue;
 		}
 		else if (evtab[i].value != ev.value)
@@ -59,7 +85,7 @@ static int add_event(const char *s, FILE *stream)
 		{
 			if (evtab[i].cmd != NULL)
 				errx(1, "rule for %s already exists", evtab[i].str); 
-				//maybe just free it?
+			/* Maybe we should just free it */
 			char buf[4192];
 			if (fgets(buf, 4192, stream) == NULL)
 				err(1, "fgets");

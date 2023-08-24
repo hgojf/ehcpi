@@ -1,23 +1,20 @@
 SRC = ehcpi.c input.c
+LIBS = -I/usr/include/libevdev-1.0 -levdev
 DEFINES = -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
 FLAGS_COMMON := -Wall -std=c99 ${DEFINES}
 
-ehcpi: ${SRC}
-	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${SRC} -o ehcpi
+.PHONY: debug install lint
 
-.PHONY: debug
+ehcpi: ${SRC}
+	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -o ehcpi
 
 debug:
-	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${SRC} -ggdb -o ehcpi
-
-.PHONY: install
+	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -ggdb -o ehcpi
 
 install:
 	install -d ${DESTDIR}${PREFIX}/bin
 	install -m 755 ehcpi ${DESTDIR}${PREFIX}/bin
 	install -m 755 init/openrc/ehcpi /etc/init.d/ehcpi
-
-.PHONY: lint
 
 lint:
 	clang-tidy ${SRC} -- ${DEFINES}
