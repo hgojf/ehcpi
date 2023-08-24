@@ -72,12 +72,6 @@ int main(int argc, char **argv)
 
 static void populate_poll(int efd, int fds[32])
 {
-	/*
-	 * We should implement something like in acpid which checks
-	 * if a device supports the events that we actually need, because
-	 * this current system is wasteful
-	 */
-
 	size_t fdi = 0;
 	DIR *dir;
 	struct dirent *dp;

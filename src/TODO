@@ -1,4 +1,3 @@
 make man page
 
-Switch to a privsep model where a daemon runs that can only read input devices,
-and tells the main process (running as root) when a match has been found.
+use libevdev to simplify input handling

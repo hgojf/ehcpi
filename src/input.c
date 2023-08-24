@@ -40,20 +40,20 @@ static struct evtab_entry evtab[] = {
 bool key_valid(int fd)
 {
 	unsigned long evbit = 0;
-	if (ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), &evbit) == -1)
-		err(1, "ioctl EVIOCGBIT");
 	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
-		int value = evtab[i].value;
-		if (evtab[i].cmd == NULL)
-			continue;
+		if (ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), &evbit) == -1)
+			err(1, "ioctl EVIOCGBIT");
 		if (!(evbit & (1 << evtab[i].type)))
 			continue;
-		size_t nchar = KEY_MAX;
+		if (evtab[i].cmd == NULL)
+			continue;
+		size_t nchar = KEY_MAX/8 + 1;
 		unsigned char bits[nchar];
-		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), &bits) == -1)
+		if (ioctl(fd, EVIOCGBIT(evtab[i].type, sizeof(bits)), &bits) == -1)
 			err(1, "ioctl");
-		if (bits[value/8] & (1 << (value % 8)))
+		int key = evtab[i].code;
+		if (bits[key/8] & (1 << (key % 8)))
 			return true;
 	}
 	return false;

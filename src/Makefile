@@ -1,5 +1,4 @@
 SRC = ehcpi.c input.c
-LIBS = -I/usr/include/libevdev-1.0 -levdev
 DEFINES = -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
 FLAGS_COMMON := -Wall -std=c99 ${DEFINES}
 
