@@ -33,11 +33,16 @@ static struct evtab_entry evtab[] = {
 	 { EV_KEY, KEY_CONFIG, 1, "button/config", NULL },
 };
 
+void evtab_init(void)
+{
+	
+}
+
 #define EV_VREP 2
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
 
-bool key_valid(int fd)
+bool ev_needed(int fd)
 {
 	unsigned long evbit = 0;
 	for (size_t i = 0; i < EVTAB_LEN; i++)

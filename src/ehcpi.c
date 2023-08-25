@@ -111,7 +111,7 @@ static void populate_poll(int efd, struct listhead *head)
 		int fd;
 		if ((fd = openat(dfd, dp->d_name, O_RDONLY | O_NONBLOCK)) == -1)
 			err(1, "open %s", dp->d_name);
-		if (key_valid(fd))
+		if (ev_needed(fd))
 		{
 			struct entry *e;
 			if ((e = malloc(sizeof(struct entry))) == NULL)
@@ -154,14 +154,11 @@ static void epoll_loop(int efd)
 		{
 			if (read(events[i].data.fd, &ev, sizeof(ev)) != sizeof(ev))
 				err(1, "read");
-			else
-			{
-				const char *name;
-				if ((name = input_string(ev)) == NULL)
-					continue;
-				if (system(name) == -1)
-					err(1, "system(%s) failed", name);
-			}
+			const char *name;
+			if ((name = input_string(ev)) == NULL)
+				continue;
+			if (system(name) == -1)
+				err(1, "system(%s) failed", name);
 		}
 	}
 }
