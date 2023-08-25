@@ -30,7 +30,8 @@ static void populate_poll(int, struct listhead *);
 static void epoll_loop(int);
 void sigint_handler(int);
 
-int main(int argc, char **argv)
+int 
+main(int argc, char **argv)
 {
 	bool daemonize = false;
 	char *cfg = "/etc/ehcpi";
@@ -89,7 +90,8 @@ int main(int argc, char **argv)
 		err(1, "close");
 }
 
-static void populate_poll(int efd, struct listhead *head)
+static void 
+populate_poll(int efd, struct listhead *head)
 {
 	DIR *dir;
 	struct dirent *dp;
@@ -138,11 +140,13 @@ static void populate_poll(int efd, struct listhead *head)
 		err(1, "closedir");
 }
 
-void sigint_handler(int signum)
+void 
+sigint_handler(int signum)
 {
 }
 
-static void epoll_loop(int efd)
+static void 
+epoll_loop(int efd)
 {
 	struct epoll_event events[12];
 

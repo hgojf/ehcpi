@@ -33,16 +33,12 @@ static struct evtab_entry evtab[] = {
 	 { EV_KEY, KEY_CONFIG, 1, "button/config", NULL },
 };
 
-void evtab_init(void)
-{
-	
-}
-
 #define EV_VREP 2
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
 
-bool ev_needed(int fd)
+bool 
+ev_needed(int fd)
 {
 	unsigned long evbit = 0;
 	for (size_t i = 0; i < EVTAB_LEN; i++)
@@ -64,7 +60,8 @@ bool ev_needed(int fd)
 	return false;
 }
 
-const char *input_string(const struct input_event ev)
+const char *
+input_string(const struct input_event ev)
 {
 	for (int i = 0; i < EVTAB_LEN; i++)
 	{
@@ -82,7 +79,8 @@ const char *input_string(const struct input_event ev)
 	return NULL;
 }
 
-static int add_event(const char *s, FILE *stream)
+static int 
+add_event(const char *s, FILE *stream)
 {
 	for (int i = 0; i < EVTAB_LEN; i++)
 	{
@@ -106,7 +104,8 @@ static int add_event(const char *s, FILE *stream)
 	return -1;
 }
 
-void parse_rules(FILE *stream)
+void 
+parse_rules(FILE *stream)
 {
 	char buf[4192];
 	while (fgets(buf, 4192, stream) != NULL)
@@ -121,7 +120,8 @@ void parse_rules(FILE *stream)
 	}
 }
 
-void free_rules(void)
+void 
+free_rules(void)
 {
 	for (int i = 0; i< EVTAB_LEN; i++)
 	{
