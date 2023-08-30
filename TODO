@@ -1,0 +1,6 @@
+make man page
+
+use libevdev to simplify input handling
+
+Redo rule parsing to just use yacc or something, because the current one is ugly
+and hard to maintain
