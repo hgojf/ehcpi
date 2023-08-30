@@ -1,6 +1,7 @@
 SRC = ehcpi.c input.c
 DEFINES = -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
-FLAGS_COMMON := -Wall -std=c99 ${DEFINES}
+FLAGS_COMMON = -Wall -std=c99 ${DEFINES}
+DESTDIR := /usr
 
 .PHONY: debug install lint
 

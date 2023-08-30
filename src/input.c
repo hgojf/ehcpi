@@ -41,10 +41,10 @@ bool
 ev_needed(int fd)
 {
 	unsigned long evbit = 0;
+	if (ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), &evbit) == -1)
+		err(1, "ioctl EVIOCGBIT");
 	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
-		if (ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), &evbit) == -1)
-			err(1, "ioctl EVIOCGBIT");
 		if (!(evbit & (1 << evtab[i].type)))
 			continue;
 		if (evtab[i].cmd == NULL)
@@ -95,6 +95,9 @@ add_event(const char *s, FILE *stream)
 			if (strncmp(buf, "action=", strlen("action=")) != 0)
 				return -1;
 			char *roll = buf + strlen("action=");
+			char *newline = strchr(roll, '\n');
+			if (newline)
+				*newline = '\0';
 			evtab[i].cmd = strdup(roll);
 			if (!evtab[i].cmd)
 				err(1, "stdup failed");

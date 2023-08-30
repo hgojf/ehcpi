@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <sys/epoll.h>
 #include <sys/queue.h>
+#include <sys/wait.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -71,6 +72,7 @@ main(int argc, char **argv)
 		if (daemon(0, 0) == -1)
 			err(1, "daemon");
 	}
+
 	epoll_loop(efd);
 
 	free_rules();
