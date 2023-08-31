@@ -18,19 +18,17 @@ struct evtab_entry {
 };
 
 static struct evtab_entry evtab[] = {
-	 { EV_KEY, KEY_POWER, 1, "button/power", NULL },
+	 { EV_KEY, KEY_POWER, 1, "power", NULL },
 
-	 { EV_KEY, KEY_BRIGHTNESSDOWN, 1, "button/brightnessdown", NULL },
-	 { EV_KEY, KEY_BRIGHTNESSUP, 1, "button/brightnessup", NULL },
+	 { EV_KEY, KEY_BRIGHTNESSDOWN, 1, "brightnessdown", NULL },
+	 { EV_KEY, KEY_BRIGHTNESSUP, 1, "brightnessup", NULL },
 
-	 { EV_KEY, KEY_VOLUMEDOWN, 1, "button/volumedown", NULL },
-	 { EV_KEY, KEY_VOLUMEUP, 1, "button/volumeup", NULL },
-	 { EV_KEY, KEY_MUTE, 1, "button/mute", NULL },
+	 { EV_KEY, KEY_VOLUMEDOWN, 1, "volumedown", NULL },
+	 { EV_KEY, KEY_VOLUMEUP, 1, "volumeup", NULL },
+	 { EV_KEY, KEY_MUTE, 1, "mute", NULL },
 
 	 { EV_SW,  SW_LID,  0, "lid-open", NULL },
-	 { EV_SW,  SW_LID,  1, "button/lid LID close", NULL },
-
-	 { EV_KEY, KEY_CONFIG, 1, "button/config", NULL },
+	 { EV_SW,  SW_LID,  1, "lid-close", NULL },
 };
 
 #define EV_VREP 2
@@ -79,48 +77,45 @@ input_string(const struct input_event ev)
 	return NULL;
 }
 
-static int 
-add_event(const char *s, FILE *stream)
+int
+add_rule(const char *event, const char *action)
 {
 	for (int i = 0; i < EVTAB_LEN; i++)
 	{
-		if (!strncmp(s, evtab[i].str, strlen(evtab[i].str)))
-		{
-			if (evtab[i].cmd != NULL)
-				errx(1, "rule for %s already exists", evtab[i].str); 
-			/* Maybe we should just free it */
-			char buf[4192];
-			if (fgets(buf, 4192, stream) == NULL)
-				err(1, "fgets");
-			if (strncmp(buf, "action=", strlen("action=")) != 0)
-				return -1;
-			char *roll = buf + strlen("action=");
-			char *newline = strchr(roll, '\n');
-			if (newline)
-				*newline = '\0';
-			evtab[i].cmd = strdup(roll);
-			if (!evtab[i].cmd)
-				err(1, "stdup failed");
-			return 0;
-		}
+		if (strcmp(evtab[i].str, event) != 0)
+			continue;
+		if ((evtab[i].cmd = strdup(action)) == NULL)
+			err(1, "strdup");
+		return 0;
 	}
 	return -1;
 }
 
-void 
+void
 parse_rules(FILE *stream)
 {
-	char buf[4192];
-	while (fgets(buf, 4192, stream) != NULL)
+	char *line = NULL;
+	size_t size;
+	while (getline(&line, &size, stream) != -1)
 	{
-		if (!strcmp(buf, "\n"))
+		if (!strcmp(line, "\n"))
 			continue;
-		if (!strncmp(buf, "event=", strlen("event=")))
-		{
-			if (add_event(buf + strlen("event="), stream) != 0)
-				warn("couldnt parse rule %s", buf);
-		}
+		char *roll = line;
+		char *event;
+		char *action;
+		if (strncmp(line, "event ", strlen("event ")) != 0)
+			errx(1, "failed to parse rule %s", line);
+		roll += strlen("event ");
+		event = roll;
+		if ((action = strstr(event, " do ")) == NULL)
+			errx(1, "failed to parse rule %s", line);
+		*action = '\0';
+		action += strlen(" do ");
+		if (add_rule(event, action) != 0)
+			err(1, "add_rule");
 	}
+	if (line != NULL)
+		free(line);
 }
 
 void 
