@@ -61,7 +61,7 @@ ev_needed(int fd)
 const char *
 input_string(const struct input_event ev)
 {
-	for (int i = 0; i < EVTAB_LEN; i++)
+	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
 		if (evtab[i].type != ev.type || evtab[i].code != ev.code)
 			continue;
@@ -77,10 +77,20 @@ input_string(const struct input_event ev)
 	return NULL;
 }
 
+void 
+free_rules(void)
+{
+	for (size_t i = 0; i < EVTAB_LEN; i++)
+	{
+		if (evtab[i].cmd != NULL)
+			free(evtab[i].cmd);
+	}
+}
+
 int
 add_rule(const char *event, const char *action)
 {
-	for (int i = 0; i < EVTAB_LEN; i++)
+	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
 		if (strcmp(evtab[i].str, event) != 0)
 			continue;
@@ -116,14 +126,4 @@ parse_rules(FILE *stream)
 	}
 	if (line != NULL)
 		free(line);
-}
-
-void 
-free_rules(void)
-{
-	for (int i = 0; i< EVTAB_LEN; i++)
-	{
-		if (evtab[i].cmd != NULL)
-			free(evtab[i].cmd);
-	}
 }
