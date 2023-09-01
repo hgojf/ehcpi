@@ -1,0 +1,31 @@
+.Dd $Mdocdate$
+.Dt ehcpi 8
+.Os
+.Sh NAME
+.Nm ehcpi
+.Nd executes an action corresponding to an input event
+.Sh SYNOPSIS
+.Nm ehcpi
+.Op Fl d
+.Sh DESCRIPTION
+The
+.Nm
+daemon polls for input events and executes specified programs corrosponding to them.
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl d
+Daemonize using 
+.Xr daemon 3
+.Sh FILES
+.Pa /etc/ehcpi.conf
+configuration file
+.Sh BUGS
+Rule parsing is bad and should be done properly (via yacc or etc)
+\n
+Adding new keys can be cumbersome, perhaps an input library should be used rather than directly using evdev
+.Sh SEE ALSO
+.Xr daemon 3
+.Xr acpid 8
+.Xr ehcpi.conf 5
+.Sh AUTHORS
+Henry Ford <fordhenry2299@gmail.com>

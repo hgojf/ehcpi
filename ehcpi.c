@@ -18,6 +18,7 @@
 #include <assert.h>
 
 #include "input.h"
+#include "pathnames.h"
 
 struct entry
 {
@@ -35,7 +36,6 @@ int
 main(int argc, char **argv)
 {
 	bool daemonize = false;
-	char *cfg = "/etc/ehcpi";
 	int ch;
 	while ((ch = getopt(argc, argv, "d")) != EOF)
 	{
@@ -50,7 +50,7 @@ main(int argc, char **argv)
 	}
 
 	FILE *fp;
-	if ((fp = fopen(cfg, "r")) == NULL)
+	if ((fp = fopen(CFG_PATH, "r")) == NULL)
 		err(1, "fopen");
 
 	parse_rules(fp);
