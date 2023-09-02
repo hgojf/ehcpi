@@ -8,11 +8,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 struct evtab_entry {
-	unsigned type;
-	unsigned code;
-	unsigned value;
+	uint16_t type;
+	uint16_t code;
+	int32_t value;
 	const char *str;
 	char *cmd;
 };
