@@ -95,6 +95,8 @@ main(int argc, char **argv)
 static void 
 populate_poll(int efd, struct listhead *head)
 {
+	assert(head != NULL);
+
 	DIR *dir;
 	struct dirent *dp;
 	int dfd;

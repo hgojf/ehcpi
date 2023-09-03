@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <assert.h>
 
 struct evtab_entry {
 	uint16_t type;
@@ -18,18 +19,17 @@ struct evtab_entry {
 	char *cmd;
 };
 
+#define TAB_ENTRY(c, k, v, s) { c, k, v, s, NULL }
+
 static struct evtab_entry evtab[] = {
-	 { EV_KEY, KEY_POWER, 1, "power", NULL },
-
-	 { EV_KEY, KEY_BRIGHTNESSDOWN, 1, "brightnessdown", NULL },
-	 { EV_KEY, KEY_BRIGHTNESSUP, 1, "brightnessup", NULL },
-
-	 { EV_KEY, KEY_VOLUMEDOWN, 1, "volumedown", NULL },
-	 { EV_KEY, KEY_VOLUMEUP, 1, "volumeup", NULL },
-	 { EV_KEY, KEY_MUTE, 1, "mute", NULL },
-
-	 { EV_SW,  SW_LID,  0, "lid-open", NULL },
-	 { EV_SW,  SW_LID,  1, "lid-close", NULL },
+	 TAB_ENTRY(EV_KEY, KEY_POWER, 1, "power"),
+	 TAB_ENTRY(EV_KEY, KEY_BRIGHTNESSDOWN, 1, "brightnessdown"),
+	 TAB_ENTRY(EV_KEY, KEY_BRIGHTNESSUP, 1, "brightnessup"),
+	 TAB_ENTRY(EV_KEY, KEY_VOLUMEDOWN, 1, "volumedown"),
+	 TAB_ENTRY(EV_KEY, KEY_VOLUMEUP, 1, "volumeup"),
+	 TAB_ENTRY(EV_KEY, KEY_MUTE, 1, "mute"),
+	 TAB_ENTRY(EV_SW, SW_LID, 0, "lid-open"),
+	 TAB_ENTRY(EV_SW, SW_LID, 1, "lid-close"),
 };
 
 #define EV_VREP 2
@@ -88,9 +88,16 @@ free_rules(void)
 	}
 }
 
+/* Maybe instead of instantly crashing if we cant find a matching event
+ * we should simply output a warning that an unknown was passed
+ */
+
 int
 add_rule(const char *event, const char *action)
 {
+	assert(event != NULL);
+	assert(action != NULL);
+
 	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
 		if (strcmp(evtab[i].str, event) != 0)
@@ -105,6 +112,8 @@ add_rule(const char *event, const char *action)
 void
 parse_rules(FILE *stream)
 {
+	assert(stream != NULL);
+
 	char *line = NULL;
 	size_t size;
 	while (getline(&line, &size, stream) != -1)
