@@ -32,17 +32,22 @@ static void populate_poll(int, struct listhead *);
 static void epoll_loop(int);
 void sigint_handler(int);
 
+static bool debug_mode = false;
+
 int 
 main(int argc, char **argv)
 {
 	bool daemonize = false;
 	int ch;
-	while ((ch = getopt(argc, argv, "d")) != EOF)
+	while ((ch = getopt(argc, argv, "dt")) != EOF)
 	{
 		switch (ch)
 		{
 			case 'd':
 				daemonize = true;
+				break;
+			case 't':
+				debug_mode = true;
 				break;
 			default:
 				break;
@@ -162,6 +167,12 @@ epoll_loop(int efd)
 		{
 			if (read(events[i].data.fd, &ev, sizeof(ev)) != sizeof(ev))
 				err(1, "read");
+			if (debug_mode)
+			{
+				if (fprintf(stderr, "type:%u code:%u value:%u\n", ev.type, ev.code, ev.value) == -1)
+					err(1, "fprintf");
+				continue;
+			}
 			const char *name;
 			if ((name = input_string(ev)) == NULL)
 				continue;
