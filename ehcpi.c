@@ -54,6 +54,12 @@ main(int argc, char **argv)
 		}
 	}
 
+	if (daemonize)
+	{
+		if (daemon(0, 0) == -1)
+			err(1, "daemon");
+	}
+
 	FILE *fp;
 	if ((fp = fopen(CFG_PATH, "r")) == NULL)
 		err(1, "fopen");
@@ -72,11 +78,6 @@ main(int argc, char **argv)
 
 	(void) signal(SIGINT, sigint_handler);
 	(void) signal(SIGTERM, sigint_handler);
-	if (daemonize)
-	{
-		if (daemon(0, 0) == -1)
-			err(1, "daemon");
-	}
 
 	epoll_loop(efd);
 

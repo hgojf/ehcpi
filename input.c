@@ -62,6 +62,7 @@ ev_needed(int fd)
 const char *
 input_string(const struct input_event ev)
 {
+	/* Hey inneffecient */
 	for (size_t i = 0; i < EVTAB_LEN; i++)
 	{
 		if (evtab[i].type != ev.type || evtab[i].code != ev.code)
