@@ -19,8 +19,6 @@ struct evtab_entry {
 	char *cmd;
 };
 
-struct evtab_entry *evtab2[EV_MAX][255][2];
-
 #define TAB_ENTRY(c, k, v, s) { c, k, v, s, NULL }
 
 static struct evtab_entry evtab[] = {
@@ -37,6 +35,51 @@ static struct evtab_entry evtab[] = {
 #define EV_VREP 2
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
+
+struct input_cat {
+	size_t len;
+	struct evtab_entry ***codes; //i.e *[][]
+};
+
+static struct input_cat cats[EV_MAX];
+static struct input_cat keys;
+static struct input_cat switches;
+
+struct evtab_entry ***
+make_code(size_t max)
+{
+	struct evtab_entry ***ret;
+	if ((ret = reallocarray(NULL, max, sizeof(struct evtab_entry ***))) == NULL)
+		err(1, "ha");
+	for (size_t i = 0; i < max; i++)
+	{
+		if ((ret[i] = calloc(2, sizeof(struct evtab_entry **))) == NULL)
+			err(1, "baha");
+		/* We actually need to calloc here. */
+	}
+	return ret;
+}
+
+void 
+free_codes(struct evtab_entry ***code, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+	{
+		free(code[i]);
+	}
+	free(code);
+}
+
+void 
+evtab2_init(void)
+{
+	keys.codes = make_code(KEY_MAX);
+	keys.len = KEY_MAX;
+	switches.codes = make_code(SW_MAX);
+	switches.len = SW_MAX;
+	cats[EV_KEY] = keys;
+	cats[EV_SW] = switches;
+}
 
 bool 
 ev_needed(int fd)
@@ -64,20 +107,19 @@ ev_needed(int fd)
 const char *
 input_string(const struct input_event ev)
 {
-	/* Hey inneffecient */
-	for (size_t i = 0; i < EVTAB_LEN; i++)
+	struct evtab_entry *r;
+	switch (ev.type)
 	{
-		if (evtab[i].type != ev.type || evtab[i].code != ev.code)
-			continue;
-		if (ev.type == EV_KEY)
-		{
-			if (ev.value != EV_VREP && evtab[i].value != ev.value)
-				continue;
-		}
-		else if (evtab[i].value != ev.value)
-			continue;
-		return evtab[i].cmd;
+		case EV_KEY:
+		case EV_SW:
+			break;
+		default:
+			return NULL;
 	}
+	if (ev.code > cats[ev.type].len)
+		return NULL;
+	if ((r = cats[ev.type].codes[ev.code][ev.value]) != NULL)
+		return r->cmd;
 	return NULL;
 }
 
@@ -89,6 +131,8 @@ free_rules(void)
 		if (evtab[i].cmd != NULL)
 			free(evtab[i].cmd);
 	}
+	free_codes(keys.codes, keys.len);
+	free_codes(switches.codes, switches.len);
 }
 
 /* Maybe instead of instantly crashing if we cant find a matching event
@@ -107,6 +151,7 @@ add_rule(const char *event, const char *action)
 			continue;
 		if ((evtab[i].cmd = strdup(action)) == NULL)
 			err(1, "strdup");
+		cats[evtab[i].type].codes[evtab[i].code][evtab[i].value] = &evtab[i];
 		return 0;
 	}
 	return -1;
@@ -117,6 +162,7 @@ parse_rules(FILE *stream)
 {
 	assert(stream != NULL);
 
+	evtab2_init();
 	char *line = NULL;
 	size_t size;
 	while (getline(&line, &size, stream) != -1)
