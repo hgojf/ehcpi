@@ -175,7 +175,7 @@ epoll_loop(int efd)
 				continue;
 			}
 			const char *name;
-			if ((name = input_string(ev)) == NULL)
+			if ((name = input_string(&ev)) == NULL)
 				continue;
 			if (system(name) == -1)
 				err(1, "system(%s) failed", name);

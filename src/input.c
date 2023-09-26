@@ -36,50 +36,10 @@ static struct evtab_entry evtab[] = {
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
 
-struct input_cat {
-	size_t len;
-	struct evtab_entry ***codes; //i.e *[][]
-};
+static struct evtab_entry *keys[KEY_MAX][2];
+static struct evtab_entry *switches[SW_MAX][2];
 
-static struct input_cat cats[EV_MAX];
-static struct input_cat keys;
-static struct input_cat switches;
-
-struct evtab_entry ***
-make_code(size_t max)
-{
-	struct evtab_entry ***ret;
-	if ((ret = reallocarray(NULL, max, sizeof(struct evtab_entry ***))) == NULL)
-		err(1, "ha");
-	for (size_t i = 0; i < max; i++)
-	{
-		if ((ret[i] = calloc(2, sizeof(struct evtab_entry **))) == NULL)
-			err(1, "baha");
-		/* We actually need to calloc here. */
-	}
-	return ret;
-}
-
-void 
-free_codes(struct evtab_entry ***code, size_t len)
-{
-	for (size_t i = 0; i < len; i++)
-	{
-		free(code[i]);
-	}
-	free(code);
-}
-
-void 
-evtab2_init(void)
-{
-	keys.codes = make_code(KEY_MAX);
-	keys.len = KEY_MAX;
-	switches.codes = make_code(SW_MAX);
-	switches.len = SW_MAX;
-	cats[EV_KEY] = keys;
-	cats[EV_SW] = switches;
-}
+/* https://android.googlesource.com/device/generic/brillo/+/d1917142dc905d808519023d80a664c066104600/examples/keyboard/keyboard_example.cpp */
 
 bool 
 ev_needed(int fd)
@@ -104,21 +64,32 @@ ev_needed(int fd)
 	return false;
 }
 
-const char *
-input_string(const struct input_event ev)
+struct evtab_entry *
+getevtab(const struct input_event *ev)
 {
-	struct evtab_entry *r;
-	switch (ev.type)
+	assert(ev != NULL);
+	switch (ev->type)
 	{
 		case EV_KEY:
+			if (ev->code >= KEY_MAX || ev->value >= 2)
+				return NULL;
+			return keys[ev->code][ev->value];
 		case EV_SW:
-			break;
+			if (ev->code >= SW_MAX || ev->value >= 2)
+				return NULL;
+			return switches[ev->code][ev->value];
 		default:
 			return NULL;
 	}
-	if (ev.code > cats[ev.type].len)
-		return NULL;
-	if ((r = cats[ev.type].codes[ev.code][ev.value]) != NULL)
+}
+
+
+const char *
+input_string(const struct input_event *ev)
+{
+	assert(ev != NULL);
+	struct evtab_entry *r;
+	if ((r = getevtab(ev)) != NULL)
 		return r->cmd;
 	return NULL;
 }
@@ -131,8 +102,6 @@ free_rules(void)
 		if (evtab[i].cmd != NULL)
 			free(evtab[i].cmd);
 	}
-	free_codes(keys.codes, keys.len);
-	free_codes(switches.codes, switches.len);
 }
 
 /* Maybe instead of instantly crashing if we cant find a matching event
@@ -151,7 +120,19 @@ add_rule(const char *event, const char *action)
 			continue;
 		if ((evtab[i].cmd = strdup(action)) == NULL)
 			err(1, "strdup");
-		cats[evtab[i].type].codes[evtab[i].code][evtab[i].value] = &evtab[i];
+		switch (evtab[i].type)
+		{
+			case EV_KEY:
+				if (evtab[i].code >= KEY_MAX || evtab[i].value >= 2)
+					return -1;
+				keys[evtab[i].code][evtab[i].value] = &evtab[i];
+				break;
+			case EV_SW:
+				if (evtab[i].code >= SW_MAX || evtab[i].value >= 2)
+					return -1;
+				switches[evtab[i].code][evtab[i].value] = &evtab[i];
+				break;
+		}
 		return 0;
 	}
 	return -1;
@@ -162,7 +143,6 @@ parse_rules(FILE *stream)
 {
 	assert(stream != NULL);
 
-	evtab2_init();
 	char *line = NULL;
 	size_t size;
 	while (getline(&line, &size, stream) != -1)
