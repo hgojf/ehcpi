@@ -1,0 +1,2 @@
+Use Yacc or something to parse config files, current solution is horrible.
+- Requires learning those tools.
