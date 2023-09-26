@@ -1,4 +1,5 @@
-github test
+A daemon that executes a program when a certain input event is received,
+handles power buttons, laptop lid switches, etc.
 
 Dependencies
 
