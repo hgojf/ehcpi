@@ -30,6 +30,8 @@ static struct evtab_entry evtab[] = {
 	 TAB_ENTRY(EV_KEY, KEY_MUTE, 1, "mute"),
 	 TAB_ENTRY(EV_SW, SW_LID, 0, "lid-open"),
 	 TAB_ENTRY(EV_SW, SW_LID, 1, "lid-close"),
+	 TAB_ENTRY(EV_SW, SW_HEADPHONE_INSERT, 1, "speaker-plug"),
+	 TAB_ENTRY(EV_SW, SW_HEADPHONE_INSERT, 0, "speaker-unplug"),
 };
 
 #define EV_VREP 2
