@@ -28,6 +28,7 @@ static struct evtab_entry evtab[] = {
 	 TAB_ENTRY(EV_KEY, KEY_VOLUMEDOWN, 1, "volumedown"),
 	 TAB_ENTRY(EV_KEY, KEY_VOLUMEUP, 1, "volumeup"),
 	 TAB_ENTRY(EV_KEY, KEY_MUTE, 1, "mute"),
+	 TAB_ENTRY(EV_KEY, 190, 1, "micmute"),
 	 TAB_ENTRY(EV_SW, SW_LID, 0, "lid-open"),
 	 TAB_ENTRY(EV_SW, SW_LID, 1, "lid-close"),
 	 TAB_ENTRY(EV_SW, SW_HEADPHONE_INSERT, 1, "speaker-plug"),
@@ -38,8 +39,8 @@ static struct evtab_entry evtab[] = {
 
 #define EVTAB_LEN (sizeof(evtab) / sizeof(*evtab))
 
-static struct evtab_entry *keys[KEY_MAX][2];
-static struct evtab_entry *switches[SW_MAX][2];
+static const char *keys[KEY_MAX][2];
+static const char *switches[SW_MAX][2];
 
 /* https://android.googlesource.com/device/generic/brillo/+/d1917142dc905d808519023d80a664c066104600/examples/keyboard/keyboard_example.cpp */
 
@@ -66,8 +67,8 @@ ev_needed(int fd)
 	return false;
 }
 
-struct evtab_entry *
-getevtab(const struct input_event *ev)
+const char *
+input_string(const struct input_event *ev)
 {
 	assert(ev != NULL);
 	switch (ev->type)
@@ -83,17 +84,6 @@ getevtab(const struct input_event *ev)
 		default:
 			return NULL;
 	}
-}
-
-
-const char *
-input_string(const struct input_event *ev)
-{
-	assert(ev != NULL);
-	struct evtab_entry *r;
-	if ((r = getevtab(ev)) != NULL)
-		return r->cmd;
-	return NULL;
 }
 
 void 
@@ -127,12 +117,12 @@ add_rule(const char *event, const char *action)
 			case EV_KEY:
 				if (evtab[i].code >= KEY_MAX || evtab[i].value >= 2)
 					return -1;
-				keys[evtab[i].code][evtab[i].value] = &evtab[i];
+				keys[evtab[i].code][evtab[i].value] = evtab[i].cmd;
 				break;
 			case EV_SW:
 				if (evtab[i].code >= SW_MAX || evtab[i].value >= 2)
 					return -1;
-				switches[evtab[i].code][evtab[i].value] = &evtab[i];
+				switches[evtab[i].code][evtab[i].value] = evtab[i].cmd;
 				break;
 		}
 		return 0;
