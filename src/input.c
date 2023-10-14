@@ -139,11 +139,11 @@ parse_rules(FILE *stream)
 	size_t size;
 	while (getline(&line, &size, stream) != -1)
 	{
-		if (!strcmp(line, "\n"))
-			continue;
 		char *roll = line;
 		char *event;
 		char *action;
+		if (!strcmp(line, "\n"))
+			continue;
 		if (strncmp(line, "event ", strlen("event ")) != 0)
 			errx(1, "failed to parse rule %s", line);
 		roll += strlen("event ");

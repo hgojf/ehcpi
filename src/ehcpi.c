@@ -31,7 +31,7 @@ SLIST_HEAD(listhead, entry) head;
 
 static void populate_poll(int, struct listhead *);
 static void epoll_loop(int);
-void sigint_handler(int);
+void free_slist(struct listhead *);
 
 static bool debug_mode = false;
 
@@ -40,6 +40,8 @@ main(int argc, char **argv)
 {
 	bool daemonize = false;
 	int ch;
+	FILE *cfg;
+	int efd;
 	while ((ch = getopt(argc, argv, "dt")) != EOF)
 	{
 		switch (ch)
@@ -61,15 +63,13 @@ main(int argc, char **argv)
 			err(1, "daemon");
 	}
 
-	FILE *fp;
-	if ((fp = fopen(CFG_PATH, "r")) == NULL)
+	if ((cfg = fopen(CFG_PATH, "r")) == NULL)
 		err(1, "fopen");
 
-	parse_rules(fp);
-	if (fclose(fp) == -1)
+	parse_rules(cfg);
+	if (fclose(cfg) == -1)
 		err(1, "fclose");
 
-	int efd;
 	if ((efd = epoll_create(32)) == -1)
 		err(1, "epoll_create");
 
@@ -81,8 +81,17 @@ main(int argc, char **argv)
 
 	free_rules();
 
+	free_slist(&head);
+
+	if (close(efd) == -1)
+		err(1, "close");
+}
+
+void
+free_slist(struct listhead *head)
+{
 	struct entry *i, *i2;
-	i = SLIST_FIRST(&head);
+	i = SLIST_FIRST(head);
 	while (i != NULL)
 	{
 		if (close(i->fd) == -1)
@@ -91,9 +100,6 @@ main(int argc, char **argv)
 		free(i);
 		i = i2;
 	}
-
-	if (close(efd) == -1)
-		err(1, "close");
 }
 
 static void 
@@ -112,13 +118,14 @@ populate_poll(int efd, struct listhead *head)
 	while ((dp = readdir(dir)) != NULL)
 	{
 		struct stat sb;
+		struct epoll_event event_hints;
+		int fd;
 		if (fstatat(dfd, dp->d_name, &sb, 0) == -1)
 			err(1, "stat %s", dp->d_name);
 		if (S_ISDIR(sb.st_mode))
 			continue;
 		if (strncmp(dp->d_name, "event", strlen("event")) != 0)
 			continue;
-		int fd;
 		if ((fd = openat(dfd, dp->d_name, O_RDONLY | O_NONBLOCK)) == -1)
 			err(1, "open %s", dp->d_name);
 		if (ev_needed(fd))
@@ -136,7 +143,6 @@ populate_poll(int efd, struct listhead *head)
 			continue;
 		}
 
-		struct epoll_event event_hints;
 		bzero(&event_hints, sizeof(struct epoll_event));
 		event_hints.events = EPOLLIN;
 		event_hints.data.fd = fd;
