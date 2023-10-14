@@ -4,6 +4,7 @@
 #include <sys/epoll.h>
 #include <sys/queue.h>
 #include <sys/wait.h>
+#include <sys/signalfd.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -76,9 +77,6 @@ main(int argc, char **argv)
 
 	populate_poll(efd, &head);
 
-	(void) signal(SIGINT, sigint_handler);
-	(void) signal(SIGTERM, sigint_handler);
-
 	epoll_loop(efd);
 
 	free_rules();
@@ -139,7 +137,7 @@ populate_poll(int efd, struct listhead *head)
 		}
 
 		struct epoll_event event_hints;
-		memset(&event_hints, 0, sizeof(struct epoll_event));
+		bzero(&event_hints, sizeof(struct epoll_event));
 		event_hints.events = EPOLLIN;
 		event_hints.data.fd = fd;
 
@@ -150,22 +148,35 @@ populate_poll(int efd, struct listhead *head)
 		err(1, "closedir");
 }
 
-void 
-sigint_handler(int signum)
-{
-}
-
 static void 
 epoll_loop(int efd)
 {
 	struct epoll_event events[12];
-
+	int sigfd;
 	int events_read;
+	struct epoll_event sigfd_event;
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGINT);
+	sigaddset(&set, SIGTERM);
+	if ((sigfd = signalfd(-1, &set, 0)) == -1)
+		return;
+	bzero(&sigfd_event, sizeof(struct epoll_event));
+	sigfd_event.events = EPOLLIN;
+	sigfd_event.data.fd = sigfd;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, sigfd, &sigfd_event) == -1)
+		return;
+	if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
+		return;
+
 	while ((events_read = epoll_wait(efd, events, 12, -1)) != -1)
 	{
 		struct input_event ev;
 		for (int i = 0; i < events_read; i++)
 		{
+			const char *name;
+			if (events[i].data.fd == sigfd)
+				goto done;
 			if (read(events[i].data.fd, &ev, sizeof(ev)) != sizeof(ev))
 				err(1, "read");
 			if (debug_mode)
@@ -174,11 +185,12 @@ epoll_loop(int efd)
 					err(1, "fprintf");
 				continue;
 			}
-			const char *name;
 			if ((name = input_string(&ev)) == NULL)
 				continue;
 			if (system(name) == -1)
 				err(1, "system(%s) failed", name);
 		}
 	}
+	done:
+	close(sigfd);
 }
