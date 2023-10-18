@@ -1,10 +1,9 @@
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
 #include <sys/stat.h>
-#include <sys/epoll.h>
 #include <sys/queue.h>
 #include <sys/wait.h>
-#include <sys/signalfd.h>
+#include <event.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -24,14 +23,15 @@
 struct entry
 {
 	int fd;
+	struct event ev;
 	SLIST_ENTRY(entry) entries;
 };
 
 SLIST_HEAD(listhead, entry) head;
 
-static void populate_poll(int, struct listhead *);
-static void epoll_loop(int);
+static void populate_poll(struct listhead *);
 void free_slist(struct listhead *);
+void event_handler(int, short, void *);
 
 static bool debug_mode = false;
 
@@ -39,9 +39,10 @@ int
 main(int argc, char **argv)
 {
 	bool daemonize = false;
+	struct event_base *ep;
+	struct event sigint, sigterm;
 	int ch;
 	FILE *cfg;
-	int efd;
 	while ((ch = getopt(argc, argv, "dt")) != EOF)
 	{
 		switch (ch)
@@ -70,21 +71,22 @@ main(int argc, char **argv)
 	if (fclose(cfg) == -1)
 		err(1, "fclose");
 
-	if ((efd = epoll_create(32)) == -1)
-		err(1, "epoll_create");
+	if ((ep = event_init()) == NULL)
+		err(1, "event_init");
+	signal_set(&sigint, SIGINT, event_handler, NULL);
+	signal_add(&sigint, NULL);
+	signal_set(&sigterm, SIGTERM, event_handler, NULL);
+	signal_add(&sigterm, NULL);
 
 	SLIST_INIT(&head);
 
-	populate_poll(efd, &head);
+	populate_poll(&head);
 
-	epoll_loop(efd);
+	event_loop(0);
 
+	event_base_free(ep);
 	free_rules();
-
 	free_slist(&head);
-
-	if (close(efd) == -1)
-		err(1, "close");
 }
 
 void
@@ -102,14 +104,37 @@ free_slist(struct listhead *head)
 	}
 }
 
-static void 
-populate_poll(int efd, struct listhead *head)
+void
+event_handler(int fd, short type, void *data)
 {
-	assert(head != NULL);
+	struct input_event ev;
+	const char *name;
+	if (type == EV_SIGNAL)
+	{
+		event_loopexit(NULL);
+		return;
+	}
+	if (read(fd, &ev, sizeof(ev)) != sizeof(ev))
+		err(1, "read");
+	if (debug_mode)
+	{
+		if (fprintf(stderr, "type:%u code:%u value:%u\n", ev.type, ev.code, ev.value) == -1)
+			err(1, "fprintf");
+		return;
+	}
+	if ((name = input_string(&ev)) == NULL)
+		return;
+	if (system(name) == -1)
+		err(1, "system(%s) failed", name);
+}
 
+static void 
+populate_poll(struct listhead *head)
+{
 	DIR *dir;
 	struct dirent *dp;
 	int dfd;
+	assert(head != NULL);
 	if ((dir = opendir("/dev/input")) == NULL)
 		err(1, "opendir");
 	/* EINVAL will never happen, but ENOTSUP might (on some libc?) */
@@ -118,7 +143,7 @@ populate_poll(int efd, struct listhead *head)
 	while ((dp = readdir(dir)) != NULL)
 	{
 		struct stat sb;
-		struct epoll_event event_hints;
+		struct entry *e;
 		int fd;
 		if (fstatat(dfd, dp->d_name, &sb, 0) == -1)
 			err(1, "stat %s", dp->d_name);
@@ -130,7 +155,6 @@ populate_poll(int efd, struct listhead *head)
 			err(1, "open %s", dp->d_name);
 		if (ev_needed(fd))
 		{
-			struct entry *e;
 			if ((e = malloc(sizeof(struct entry))) == NULL)
 				err(1, "malloc");
 			e->fd = fd;
@@ -143,60 +167,10 @@ populate_poll(int efd, struct listhead *head)
 			continue;
 		}
 
-		bzero(&event_hints, sizeof(struct epoll_event));
-		event_hints.events = EPOLLIN;
-		event_hints.data.fd = fd;
+		event_set(&e->ev, e->fd, EV_READ | EV_PERSIST, event_handler, NULL);
+		event_add(&e->ev, NULL);
 
-		if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event_hints) == -1)
-			err(1, "epollctl");
 	}
 	if (closedir(dir) == -1)
 		err(1, "closedir");
-}
-
-static void 
-epoll_loop(int efd)
-{
-	struct epoll_event events[12];
-	int sigfd;
-	int events_read;
-	struct epoll_event sigfd_event;
-	sigset_t set;
-	sigemptyset(&set);
-	sigaddset(&set, SIGINT);
-	sigaddset(&set, SIGTERM);
-	if ((sigfd = signalfd(-1, &set, 0)) == -1)
-		return;
-	bzero(&sigfd_event, sizeof(struct epoll_event));
-	sigfd_event.events = EPOLLIN;
-	sigfd_event.data.fd = sigfd;
-	if (epoll_ctl(efd, EPOLL_CTL_ADD, sigfd, &sigfd_event) == -1)
-		return;
-	if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
-		return;
-
-	while ((events_read = epoll_wait(efd, events, 12, -1)) != -1)
-	{
-		struct input_event ev;
-		for (int i = 0; i < events_read; i++)
-		{
-			const char *name;
-			if (events[i].data.fd == sigfd)
-				goto done;
-			if (read(events[i].data.fd, &ev, sizeof(ev)) != sizeof(ev))
-				err(1, "read");
-			if (debug_mode)
-			{
-				if (fprintf(stderr, "type:%u code:%u value:%u\n", ev.type, ev.code, ev.value) == -1)
-					err(1, "fprintf");
-				continue;
-			}
-			if ((name = input_string(&ev)) == NULL)
-				continue;
-			if (system(name) == -1)
-				err(1, "system(%s) failed", name);
-		}
-	}
-	done:
-	close(sigfd);
 }
