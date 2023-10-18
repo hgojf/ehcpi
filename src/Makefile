@@ -4,13 +4,12 @@ FLAGS_COMMON = -W -Wall -Wextra -std=c99 ${DEFINES}
 LIBS = $(shell pkg-config --cflags --libs libevent)
 DESTDIR := /usr
 
-.PHONY: debug lint
+.PHONY: debug lint release
 
 ehcpi: ${SRC}
-	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -o ehcpi
-
-debug:
-	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -O0 -ggdb -o ehcpi
+	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -ggdb -O0 -o ehcpi
+release: ${SRC}
+	$(CC) ${FLAGS_COMMON} ${CFLAGS} ${LIBS} ${SRC} -DNDEBUG -o ehcpi
 
 lint:
 	clang-tidy ${SRC} -- ${DEFINES}

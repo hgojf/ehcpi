@@ -20,6 +20,10 @@
 #include "input.h"
 #include "pathnames.h"
 
+#define __maybe_unused __attribute((unused))
+
+SLIST_HEAD(listhead, entry);
+
 struct entry
 {
 	int fd;
@@ -27,11 +31,10 @@ struct entry
 	SLIST_ENTRY(entry) entries;
 };
 
-SLIST_HEAD(listhead, entry) head;
-
 static void populate_poll(struct listhead *);
 void free_slist(struct listhead *);
 void event_handler(int, short, void *);
+void signal_event_handler(int, short, void *);
 
 static bool debug_mode = false;
 
@@ -43,6 +46,7 @@ main(int argc, char **argv)
 	struct event sigint, sigterm;
 	int ch;
 	FILE *cfg;
+	struct listhead head = SLIST_HEAD_INITIALIZER(head);
 	while ((ch = getopt(argc, argv, "dt")) != EOF)
 	{
 		switch (ch)
@@ -73,12 +77,10 @@ main(int argc, char **argv)
 
 	if ((ep = event_init()) == NULL)
 		err(1, "event_init");
-	signal_set(&sigint, SIGINT, event_handler, NULL);
+	signal_set(&sigint, SIGINT, signal_event_handler, NULL);
 	signal_add(&sigint, NULL);
-	signal_set(&sigterm, SIGTERM, event_handler, NULL);
+	signal_set(&sigterm, SIGTERM, signal_event_handler, NULL);
 	signal_add(&sigterm, NULL);
-
-	SLIST_INIT(&head);
 
 	populate_poll(&head);
 
@@ -105,15 +107,10 @@ free_slist(struct listhead *head)
 }
 
 void
-event_handler(int fd, short type, void *data)
+event_handler(int fd, __maybe_unused short type, __maybe_unused void *data)
 {
 	struct input_event ev;
 	const char *name;
-	if (type == EV_SIGNAL)
-	{
-		event_loopexit(NULL);
-		return;
-	}
 	if (read(fd, &ev, sizeof(ev)) != sizeof(ev))
 		err(1, "read");
 	if (debug_mode)
@@ -128,6 +125,12 @@ event_handler(int fd, short type, void *data)
 		err(1, "system(%s) failed", name);
 }
 
+void
+signal_event_handler(__maybe_unused int fd, __maybe_unused short type, __maybe_unused void *data)
+{
+	event_loopexit(NULL);
+}
+
 static void 
 populate_poll(struct listhead *head)
 {
@@ -137,7 +140,6 @@ populate_poll(struct listhead *head)
 	assert(head != NULL);
 	if ((dir = opendir("/dev/input")) == NULL)
 		err(1, "opendir");
-	/* EINVAL will never happen, but ENOTSUP might (on some libc?) */
 	if ((dfd = dirfd(dir)) == -1)
 		err(1, "dirfd");
 	while ((dp = readdir(dir)) != NULL)
